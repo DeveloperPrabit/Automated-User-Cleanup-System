@@ -1,0 +1,58 @@
+services:
+  backend:
+    build: .
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_DB=user_cleanup
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Prabit123
+      - POSTGRES_HOST=host.docker.internal
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - INACTIVITY_THRESHOLD_DAYS=${INACTIVITY_THRESHOLD_DAYS:-30}
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-change-in-production}
+      - DEBUG=${DEBUG:-True}
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+
+  worker:
+    build: .
+    command: celery -A config worker -l info
+    volumes:
+      - .:/app
+    environment:
+      - POSTGRES_DB=user_cleanup
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Prabit123
+      - POSTGRES_HOST=host.docker.internal
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - INACTIVITY_THRESHOLD_DAYS=${INACTIVITY_THRESHOLD_DAYS:-30}
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-change-in-production}
+      - DEBUG=${DEBUG:-True}
+    depends_on:
+      - redis
+
+  scheduler:
+    build: .
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    environment:
+      - POSTGRES_DB=user_cleanup
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Prabit123
+      - POSTGRES_HOST=host.docker.internal
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - INACTIVITY_THRESHOLD_DAYS=${INACTIVITY_THRESHOLD_DAYS:-30}
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-change-in-production}
+      - DEBUG=${DEBUG:-True}
+    depends_on:
+      - redis

@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  namespace: user-cleanup
+  labels:
+    app: user-cleanup
+    component: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-cleanup
+      component: database
+  template:
+    metadata:
+      labels:
+        app: user-cleanup
+        component: database
+    spec:
+      containers:
+      - name: db
+        image: postgres:13-alpine
+        env:
+        - name: POSTGRES_DB
+          value: "user_cleanup"
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: postgres-password
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - exec pg_isready -h 127.0.0.1 -U postgres
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - exec pg_isready -h 127.0.0.1 -U postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: user-cleanup
+  labels:
+    app: user-cleanup
+    component: database
+spec:
+  selector:
+    app: user-cleanup
+    component: database
+  ports:
+  - port: 5432
+    targetPort: 5432

@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: user-cleanup
+  labels:
+    app: user-cleanup
+    component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-cleanup
+      component: redis
+  template:
+    metadata:
+      labels:
+        app: user-cleanup
+        component: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: user-cleanup
+  labels:
+    app: user-cleanup
+    component: redis
+spec:
+  selector:
+    app: user-cleanup
+    component: redis
+  ports:
+  - port: 6379
+    targetPort: 6379

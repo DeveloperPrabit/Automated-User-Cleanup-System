@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: user-cleanup
+  labels:
+    app: user-cleanup
+    component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-cleanup
+      component: worker
+  template:
+    metadata:
+      labels:
+        app: user-cleanup
+        component: worker
+    spec:
+      initContainers:
+      - name: wait-for-db
+        image: busybox
+        command: ['sh', '-c', 'until nc -z db 5432; do echo "Waiting for PostgreSQL"; sleep 2; done']
+      containers:
+      - name: worker
+        image: user-cleanup-backend:latest
+        imagePullPolicy: Never
+        command: ["celery", "-A", "config", "worker", "-l", "info"]
+        env:
+        - name: POSTGRES_DB
+          value: "user_cleanup"
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: postgres-password
+        - name: POSTGRES_HOST
+          value: "db"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: REDIS_URL
+          value: "redis://redis:6379/0"
+        - name: INACTIVITY_THRESHOLD_DAYS
+          value: "30"
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: django-secret-key
+        - name: DEBUG
+          value: "True"
+        - name: ALLOWED_HOSTS
+          value: "localhost,127.0.0.1"
